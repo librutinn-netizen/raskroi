@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Раскрои — учёт</title>
+<meta name="theme-color" content="#1a9e54">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Раскрои">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=5">
+</head>
+<body>
+<div id="app">
+  <!-- ===== ЭКРАН: СПИСОК ===== -->
+  <section id="view-list" class="view active">
+    <header class="topbar">
+      <div>
+        <h1>Раскрои</h1>
+        <p id="todayLabel" class="subtitle">Сегодня</p>
+      </div>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="btnMe" title="Мой аккаунт">👤</button>
+        <button class="icon-btn btnTheme" title="Тёмная тема">🌙</button>
+        <button class="icon-btn" id="btnCalendar" title="Календарь">📅</button>
+        <button class="icon-btn hidden" id="btnSearchToggle" title="Поиск">🔍</button>
+        <button class="icon-btn hidden" id="btnFilterToggle" title="Фильтр">⚙️</button>
+      </div>
+    </header>
+
+    <div class="search-wrap">
+      <div class="search-box">
+        <span>🔍</span>
+        <input id="searchInput" type="text" placeholder="Поиск по названию раскроя..." autocomplete="off">
+      </div>
+      <div id="searchDrop" class="search-drop hidden"></div>
+    </div>
+
+    <div class="month-nav">
+      <button class="icon-btn" id="mPrev" title="Прошлый месяц">‹</button>
+      <div class="month-pick"><button class="month-title" id="mMonthBtn"><span id="listTitle">Раскрои</span> <small>▾</small></button><div id="mMonthMenu" class="month-menu hidden"></div></div>
+      <button class="icon-btn" id="mNext" title="Следующий месяц">›</button>
+    </div>
+    <div id="raskroiList" class="cards"></div>
+
+    <button id="fab" class="fab">+</button>
+  </section>
+
+  <!-- ===== ЭКРАН: ДЕТАЛЬ ===== -->
+  <section id="view-detail" class="view">
+    <header class="topbar nav">
+      <button class="icon-btn" data-back>←</button>
+      <h2 id="detailTitle">Рек МКС 14.12НА</h2>
+      <button class="icon-btn" id="detailMenu">⋮</button>
+    </header>
+    <div class="progress-card">
+      <div class="progress-top">📄 <span id="detailCount"></span><b id="detailFrac"></b></div>
+      <div id="detailBarBox"></div>
+    </div>
+    <h3 class="section-title">Материалы</h3>
+    <p class="hint">Тап по материалу — сменить статус: Не напилено → Не закончен → Напилено.</p>
+    <div id="detailMats" class="mats"></div>
+    <div id="detailNote" class="detail-note hidden"></div>
+    <button id="btnEditPlan" class="edit-plan">✏️ Редактировать план</button>
+    <div class="detail-actions">
+      <button id="btnDup" class="btn ghost">⧉ Повторить</button>
+      <button id="btnDeleteR" class="btn ghost danger">🗑 Удалить</button>
+    </div>
+    <div style="height:90px"></div>
+  </section>
+
+  <!-- ===== ЭКРАН: НОВЫЙ ===== -->
+  <section id="view-new" class="view">
+    <header class="topbar nav">
+      <button class="icon-btn" data-back>←</button>
+      <h2>Новый раскрой</h2>
+      <span style="width:40px"></span>
+    </header>
+    <div class="form">
+      <input id="fTitle" placeholder="Название раскроя" class="title-only">
+      <h3>Материалы</h3>
+      <div id="fMats"></div>
+      <button id="btnAddMat" class="add-mat">+ Добавить материал</button>
+      <label>Примечание</label>
+      <textarea id="fNote" placeholder="Дополнительная информация..."></textarea>
+      <button id="btnSave" class="save">Сохранить</button>
+      <div style="height:90px"></div>
+    </div>
+  </section>
+
+  <!-- ===== ЭКРАН: МАТЕРИАЛЫ (справочник) ===== -->
+  <section id="view-materials" class="view">
+    <header class="topbar"><div><h1>Материалы</h1><p class="subtitle">Справочник материалов из тетради</p></div><div class="topbar-actions"><button class="icon-btn btnTheme" title="Тёмная тема">🌙</button></div></header>
+    <div class="search-box"><span>🔍</span><input id="matSearch" placeholder="Найти материал..."></div>
+    <div class="add-row">
+      <input id="newMatName" placeholder="+ Новый материал, напр. Дуб Вотан приф">
+      <button id="btnNewMat" class="btn green">+</button>
+    </div>
+    <div id="matDir" class="mats"></div>
+    <div style="height:90px"></div>
+  </section>
+
+  <!-- ===== ЭКРАН: АККАУНТЫ ===== -->
+  <section id="view-acc" class="view">
+    <header class="topbar"><div><h1>Аккаунты</h1><p class="subtitle">Кто напилил — таким цветом отметится</p></div><div class="topbar-actions"><button class="icon-btn btnTheme" title="Тёмная тема">🌙</button></div></header>
+    <div class="add-row text">
+      <input id="newAccName" placeholder="+ Имя, напр. Илья">
+      <button id="btnNewAcc" class="btn green">Добавить</button>
+    </div>
+    <p class="hint">Тап по строке — пилить под этим именем. Тап по кружку — сменить цвет.</p>
+    <div id="accList" class="mats"></div>
+    <div style="height:90px"></div>
+  </section>
+
+  <!-- bottom nav -->
+  <nav class="tabbar">
+    <button class="tab active" data-tab="list"><i>📋</i>Раскрои</button>
+    <button class="tab" data-tab="materials"><i>🗂️</i>Материалы</button>
+    <button class="tab" data-tab="acc"><i>👤</i>Аккаунты</button>
+  </nav>
+</div>
+
+<!-- редактирование аккаунта -->
+<div id="accModal" class="modal hidden">
+  <div class="sheet">
+    <h3>Аккаунт</h3>
+    <label>Имя</label>
+    <input id="accName" placeholder="Имя" autocomplete="off">
+    <label>Описание</label>
+    <input id="accDesc" placeholder="Кто это, напр. пильщик цеха 1" autocomplete="off">
+    <div class="row2">
+      <button id="accCancel" class="btn">Отмена</button>
+      <button id="accSave" class="btn green">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<!-- общий попап в стиле приложения -->
+<div id="appModal" class="modal hidden">
+  <div class="sheet">
+    <h3 id="amTitle">Подтверждение</h3>
+    <p id="amText" class="am-text"></p>
+    <div class="prompt-wrap"><input id="amInput" class="hidden" placeholder="" autocomplete="off">
+    <div id="amSuggest" class="suggest-float"></div></div>
+    <div class="row2">
+      <button id="amCancel" class="btn">Отмена</button>
+      <button id="amOk" class="btn green">ОК</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+
+<script>if('serviceWorker' in navigator){addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
+<script src="config.js?v=5"></script>
+<script src="app.js?v=5"></script>
+</body>
+</html>

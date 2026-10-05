@@ -9,6 +9,8 @@ window.addEventListener('error',e=>{
     d.textContent=msg;
   }catch{}
 });
+// вкладка, восстановленная из кэша назад/вперёд — всегда перезагружаем свежо
+window.addEventListener('pageshow',e=>{ if(e.persisted){ try{ location.reload(); }catch{} } });
 const $ = s => document.querySelector(s);
 const uid = () => Math.random().toString(36).slice(2,9);
 const todayISO = () => new Date().toISOString().slice(0,10);
@@ -377,6 +379,7 @@ function renderDetail(){
       el.innerHTML=`<div class="mat-in" style="background-image:linear-gradient(to right,${scol}22 50%,${col}22 50%),linear-gradient(var(--card),var(--card))">${rowInner}</div>`;
     } else {
       if(col) el.setAttribute('style',`border-color:${col};background:${col}22`);
+      else if(s==='work') el.setAttribute('style',`border-color:transparent;background-image:linear-gradient(rgba(217,126,34,.10),rgba(217,126,34,.10)),linear-gradient(var(--card),var(--card)),linear-gradient(to right,var(--orange) 50%,transparent 50%);background-clip:padding-box,padding-box,border-box`);
       el.innerHTML=rowInner;
     }
     el.onclick=()=>{ // тап = следующий статус: не напилено → не закончен → напилено

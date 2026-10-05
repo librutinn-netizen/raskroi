@@ -1,5 +1,5 @@
 /* Учёт раскроев — Mini App. Данные из бумажной тетради. */
-const BUILD='20261005a';
+const BUILD='20261005b';
 if(window.BUILD&&window.BUILD!==BUILD){ try{ location.reload(); }catch{} }
 const TG = window.Telegram?.WebApp; TG?.expand?.(); TG?.ready?.();
 window.addEventListener('error',e=>{

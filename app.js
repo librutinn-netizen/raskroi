@@ -553,3 +553,17 @@ document.querySelectorAll('.btnTheme').forEach(b=>b.onclick=()=>applyTheme(docum
 saveLocal(); renderList(); renderDir();
 applyTheme(localStorage.getItem('raskroi_theme') || (TG?.colorScheme==='dark'?'dark':'light'));
 pullState(); setInterval(()=>{ if(!document.hidden) pullState(); }, CLOUD?5000:3000);
+// мгновенная синхронизация через Realtime (если включена репликация таблицы)
+let realtimeOn=false;
+try{
+  if(CLOUD && window.supabase){
+    const sb=window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY);
+    sb.channel('state').on('postgres_changes',{event:'*',schema:'public',table:'app_state'},()=>{ pullState(); })
+      .subscribe((st)=>{ realtimeOn=(st==='SUBSCRIBED'); });
+  }
+}catch{}
+if('serviceWorker' in navigator){
+  const updSW=()=>{ try{ navigator.serviceWorker.getRegistration().then(r=>{ if(r) r.update().catch(()=>{}); }); }catch{} };
+  setInterval(updSW, 60*60*1000);
+  document.addEventListener('visibilitychange',()=>{ if(!document.hidden) updSW(); });
+}

@@ -1,4 +1,6 @@
 /* Учёт раскроев — Mini App. Данные из бумажной тетради. */
+const BUILD='20261005a';
+if(window.BUILD&&window.BUILD!==BUILD){ try{ location.reload(); }catch{} }
 const TG = window.Telegram?.WebApp; TG?.expand?.(); TG?.ready?.();
 window.addEventListener('error',e=>{
   const msg='Ошибка: '+(e.message||'unknown');
@@ -14,13 +16,8 @@ window.addEventListener('pageshow',e=>{ if(e.persisted){ try{ location.reload();
 const $ = s => document.querySelector(s);
 const uid = () => Math.random().toString(36).slice(2,9);
 const todayISO = () => new Date().toISOString().slice(0,10);
-const fmtDate = iso => { try{ const [y,m,d]=iso.split('-'); return `${d}.${m}.${y}`;}catch{return iso} };
-const isToday = iso => iso===todayISO();
-const isYesterday = iso => { const d=new Date(); d.setDate(d.getDate()-1); return iso===d.toISOString().slice(0,10); };
 
-const DECORS = ["Белый приф","Белый снег приф","Графит приф","Глиняный серый приф","Кашемир","Кашемир приф","Зелёный приф","Синий приф","Розовый приф","Табак","Кр. табак","Кр. белый","Экспрессив песочный","Песочный","Миндаль приф","Сонома","Бургундский красный","Буратти","Дуб Буратти","Дуб крафт","Дуб Вотан","Орех 0729","Орех Карини","Ясень Шимо светлый","Ясень Шимо тёмный","Ясень Севилья","Урбан кофейный","Серый камень","МДФ 16","МДФ 16 двухстор","МДФ 19","МДФ 22","ДВПО бел","ДВП 3.2мм","ЛДСП 16мм","Кромка ПВХ","Фурнитура","Стекло","Чёрный приф","Кастелло бренди"];
-
-const PALETTE=['#1a9e54','#e8892b','#2f80ed','#9333ea','#e5484d','#0e9b8b','#d63384','#795548'];
+const PALETTE=['#1a9e54','#e8892b','#2f80ed','#9333ea','#e5484d','#0e9b8b','#d63384','#795548','#00acc1','#3f51b5','#c0ca33','#ff6f00','#607d8b','#ff4081','#7cb342','#5e35b1'];
 function seed(){
   const t=todayISO();
   const y=(()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().slice(0,10)})();
@@ -94,6 +91,11 @@ function accStarterName(mt){
 }
 function accColorById(id){
   const a=DB.accounts.find(x=>x.id===id); return a?a.color:'';
+}
+function workColor(mt){
+  const c=accColorById(mt.byStart); if(c) return c;
+  if(mt.assignee){ const a=DB.accounts.find(x=>x.name===mt.assignee); if(a) return a.color; }
+  return '#d97e22';
 }
 // ---------- синхронизация: облако Supabase (если настроено) или свой сервер ---
 const CFG = window.APP_CONFIG || {};
@@ -239,8 +241,19 @@ function renderList(){
 function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 // статус материала: todo (не напилено) / work (не закончен) / done (напилено)
 function mst(mt){ if(mt.st!=='done'&&mt.st!=='work'&&mt.st!=='todo') mt.st=mt.done?'done':'todo'; return mt.st; }
-function stName(s){ return s==='done'?'Напилено':s==='work'?'Не закончен':'Не напилено'; }
-function stPill(s){ return s==='done'?'ok':s==='work'?'mid':'no'; }
+function whoText(mt,s){
+  if(s==='done'){
+    const fin=accNameFor(mt), st=accStarterName(mt);
+    if(fin&&st&&st!==fin) return `Пилили: ${esc(st)}, ${esc(fin)}`;
+    if(fin) return `Пилил: ${esc(fin)}`;
+    return 'Напилено';
+  }
+  if(s==='work'){
+    const st=accStarterName(mt)||mt.assignee||'';
+    return st?`Пилит: ${esc(st)}`:'Не закончен';
+  }
+  return 'Не напилено';
+}
 function cycleSt(mt){
   const me=curAcc().id, s=mst(mt);
   if(s==='todo'){ mt.st='work'; mt.done=false; mt.byStart=me; }
@@ -298,6 +311,11 @@ function renderPromptSuggest(){
 let toastT=null;
 function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.remove('hidden'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.add('hidden'),2200); }
 $('#searchInput').oninput=e=>{q=e.target.value;renderSearchDrop();};
+function showSpot(){ $('#spot').classList.remove('hidden'); }
+function hideSpot(){ $('#spot').classList.add('hidden'); }
+$('#searchInput').addEventListener('focus',showSpot);
+$('#searchInput').addEventListener('blur',()=>setTimeout(()=>{ if($('#searchDrop').classList.contains('hidden')) hideSpot(); },150));
+$('#spot').onclick=()=>{ hideSpot(); $('#searchDrop').classList.add('hidden'); try{$('#searchInput').blur();}catch{} };
 function monthOffFor(key){ const p=(key||'').split('-'); const y=+p[0], m=+p[1]; if(!y||!m) return 0; const n=new Date(); return (y-n.getFullYear())*12+((m-1)-n.getMonth()); }
 function monthNameOf(key){ const p=(key||'').split('-'); const y=+p[0], m=+p[1]; if(!y||!m) return ''; const s=new Date(y,m-1,1).toLocaleDateString('ru-RU',{month:'long',year:'numeric'}); return s.charAt(0).toUpperCase()+s.slice(1); }
 function renderSearchDrop(){
@@ -310,12 +328,12 @@ function renderSearchDrop(){
   hits.forEach(r=>{
     const b=document.createElement('button'); b.type='button'; b.className='sr-item';
     b.innerHTML=`<span>${esc(r.title)}</span><small>${monthNameOf((r.date||'').slice(0,7))}</small>`;
-    b.onmousedown=e=>{ e.preventDefault(); monthOff=monthOffFor((r.date||'').slice(0,7)); q=''; $('#searchInput').value=''; box.classList.add('hidden'); renderList(); openDetail(r.id); };
+    b.onmousedown=e=>{ e.preventDefault(); monthOff=monthOffFor((r.date||'').slice(0,7)); q=''; $('#searchInput').value=''; box.classList.add('hidden'); hideSpot(); renderList(); openDetail(r.id); };
     box.appendChild(b);
   });
-  box.classList.remove('hidden');
+  box.classList.remove('hidden'); showSpot();
 }
-document.addEventListener('click',e=>{ if(!e.target.closest('.search-wrap')) $('#searchDrop').classList.add('hidden'); });
+document.addEventListener('click',e=>{ if(!e.target.closest('.search-wrap')){ $('#searchDrop').classList.add('hidden'); hideSpot(); } });
 $('#mPrev').onclick=()=>{ monthOff--; renderList(); };
 $('#mNext').onclick=()=>{ monthOff++; renderList(); };
 function monthNameFor(off){ const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()+off); const s=d.toLocaleDateString('ru-RU',{month:'long',year:'numeric'}); return s.charAt(0).toUpperCase()+s.slice(1); }
@@ -348,6 +366,7 @@ function openDetail(id){ currentId=id; renderDetail(); show('detail'); }
 function cur(){ return DB.raskroi.find(r=>r.id===currentId); }
 function renderDetail(){
   const r=cur(); if(!r) return;
+  if(quickOpen&&!$('#quickAddRow')) quickOpen=false;
   $('#detailTitle').textContent=r.title;
   const dn=$('#detailNote');
   if(r.note&&r.note.trim()){ dn.textContent=r.note; dn.classList.remove('hidden'); }
@@ -361,25 +380,22 @@ function renderDetail(){
     const col=s==='done'?accColorFor(mt):'';
     const byName=s==='done'?accNameFor(mt):'';
     const starter=accStarterName(mt);
+    const wcol=s==='work'?workColor(mt):'';
     const scol=(s==='done'&&starter&&mt.byStart!==mt.by)?accColorById(mt.byStart):'';
     const el=document.createElement('div');
     el.className='mat'+(s==='done'?' done':'')+(s==='work'?' work':'')+(mt.skip?' skip':'');
-    const pillHtml=s==='done'
-      ? `<span class="pill ok" style="background:${col};color:#fff">Напилено${byName?' · '+esc(byName):''}</span>`
-      : s==='work'
-      ? `<span class="pill mid">Не закончен${starter?' · '+esc(starter):''}</span>`
-      : `<span class="pill ${stPill(s)}">${stName(s)}</span>`;
-    const startedLine=(s==='done'&&starter&&mt.byStart!==mt.by)?`<span class="started">начинал: ${esc(starter)}</span>`:'';
-    const rowInner=`<div><b>${esc(mt.name)}</b><small>${esc(mt.size||'')}</small><br>
-      ${mt.skip?'<span class="pill no">Пропуск</span>':pillHtml+startedLine}
-      ${mt.assignee?`<span class="worker">👤 ${esc(mt.assignee)}</span>`:''}</div>
-      <div class="mat-x"><button title="Удалить из раскроя">×</button></div>`;
+    const pillHtml=`<span class="stxt dim">${whoText(mt,s)}</span>`;
+    const rowInner=`<div class="mat-main"><div class="mat-line1"><span class="mat-group"><b>${esc(mt.name)}${mt.size?` <small>${esc(mt.size)}</small>`:''}</b>${mt.skip?'<span class="stxt dim">Пропуск</span>':pillHtml}${mt.assignee?`<span class="worker">👤 ${esc(mt.assignee)}</span>`:''}</span><div class="mat-x"><button title="Удалить из раскроя">×</button></div></div></div>`;
     if(col&&scol){
       el.setAttribute('style',`border:0;padding:2px;background:linear-gradient(to right,${scol} 50%,${col} 50%)`);
       el.innerHTML=`<div class="mat-in" style="background-image:linear-gradient(to right,${scol}22 50%,${col}22 50%),linear-gradient(var(--card),var(--card))">${rowInner}</div>`;
-    } else {
+    }
+    else if(s==='work'){
+      el.setAttribute('style',`border:0;padding:2px;background:linear-gradient(to right,${wcol} 50%,transparent 50%)`);
+      el.innerHTML=`<div class="mat-in" style="background-image:linear-gradient(to right,${wcol}22 50%,transparent 50%),linear-gradient(var(--card),var(--card))">${rowInner}</div>`;
+    }
+    else {
       if(col) el.setAttribute('style',`border-color:${col};background:${col}22`);
-      else if(s==='work') el.setAttribute('style',`border-color:transparent;background-image:linear-gradient(rgba(217,126,34,.10),rgba(217,126,34,.10)),linear-gradient(var(--card),var(--card)),linear-gradient(to right,var(--orange) 50%,transparent 50%);background-clip:padding-box,padding-box,border-box`);
       el.innerHTML=rowInner;
     }
     el.onclick=()=>{ // тап = следующий статус: не напилено → не закончен → напилено
@@ -393,24 +409,48 @@ function renderDetail(){
     box.appendChild(el);
   });
 }
-$('#btnEditPlan').onclick=async()=>{
-  const name=await appPrompt('Новый материал','',true);
-  if(!name||!name.trim()) return;
-  const qtyRaw=await appPrompt('Количество','1');
-  if(qtyRaw===null) return;
-  const qty=parseFloat(qtyRaw)||1;
-  if(!DB.dirs.includes(name.trim())) DB.dirs.unshift(name.trim());
-  cur().materials.push({id:uid(),name:name.trim(),size:'',qty,unit:'л',done:false,urgent:false,skip:false,assignee:''});
-  save(); renderDetail();
-};
-$('#btnDeleteR').onclick=async()=>{ if(await appConfirm('Удалить раскрой?','Действие нельзя отменить.','Удалить')){ DB.raskroi=DB.raskroi.filter(r=>r.id!==currentId); save(); show('list'); renderList(); }};
-function dupRaskroy(){
-  const r=cur(); if(!r) return null;
-  const c={id:uid(),title:r.title,date:todayISO(),shop:r.shop||'Цех 1',note:r.note||'',createdAt:Date.now(),
-    materials:r.materials.map(m=>({id:uid(),name:m.name,size:m.size||'',qty:m.qty||1,unit:m.unit||'л',done:false,st:'todo',urgent:false,skip:!!m.skip,assignee:m.assignee||''}))};
-  DB.raskroi.unshift(c); save(); return c;
+let quickOpen=false;
+$('#btnEditPlan').onclick=()=>startQuickAdd();
+function startQuickAdd(){
+  if(quickOpen||$('#quickAddRow')) return;
+  if(!cur()) return;
+  quickOpen=true;
+  const box=$('#detailMats');
+  const d=document.createElement('div'); d.className='fmat'; d.id='quickAddRow';
+  d.innerHTML=`<div class="r"><input class="fm-n" placeholder="Название материала" autocomplete="off"><button class="fm-x btn" title="Отмена">×</button></div>`;
+  box.appendChild(d);
+  const inp=d.querySelector('input');
+  const showQ=()=>{
+    d.querySelectorAll('.suggest').forEach(s=>s.remove());
+    const qv=(inp.value||'').toLowerCase();
+    const items=DB.dirs.filter(n=>n.toLowerCase().includes(qv)).sort((a,b)=>a.localeCompare(b,'ru')).slice(0,7);
+    if(!items.length) return;
+    const bx=document.createElement('div'); bx.className='suggest';
+    items.forEach(n=>{
+      const b=document.createElement('button'); b.type='button'; b.textContent=n;
+      b.onmousedown=e=>{ e.preventDefault(); inp.value=n; commitQuickAdd(); };
+      bx.appendChild(b);
+    });
+    d.appendChild(bx);
+  };
+  inp.oninput=showQ; inp.onfocus=showQ;
+  inp.onkeydown=e=>{ if(e.key==='Enter'){ e.preventDefault(); commitQuickAdd(); } };
+  inp.onblur=()=>setTimeout(()=>{ d.querySelectorAll('.suggest').forEach(s=>s.remove()); if(quickOpen) commitQuickAdd(); },150);
+  d.querySelector('button').onclick=e=>{ e.stopPropagation(); cancelQuickAdd(); };
+  setTimeout(()=>inp.focus(),60);
 }
-$('#btnDup').onclick=()=>{ const c=dupRaskroy(); if(!c) return; monthOff=0; renderList(); openDetail(c.id); toast('Копия создана в текущем месяце'); };
+function cancelQuickAdd(){ quickOpen=false; const dd=$('#quickAddRow'); if(dd) dd.remove(); }
+function commitQuickAdd(){
+  if(!quickOpen) return;
+  const inp=document.querySelector('#quickAddRow input');
+  const v=inp?inp.value.trim():'';
+  quickOpen=false;
+  if(!v){ renderDetail(); return; }
+  if(!DB.dirs.includes(v)) DB.dirs.unshift(v);
+  cur().materials.push({id:uid(),name:v,size:'',qty:1,unit:'л',done:false,st:'todo',urgent:false,skip:false,assignee:''});
+  save(); renderDetail(); renderList();
+}
+$('#btnDeleteR').onclick=async()=>{ if(await appConfirm('Удалить раскрой?','Действие нельзя отменить.','Удалить')){ DB.raskroi=DB.raskroi.filter(r=>r.id!==currentId); save(); show('list'); renderList(); }};
 $('#detailMenu').onclick=async()=>{
   const r=cur();
   const a=await appPrompt('Переименовать раскрой',r.title); if(a&&a.trim()){r.title=a.trim();save();renderDetail();}
@@ -492,6 +532,24 @@ $('#matSearch').oninput=e=>{matQ=e.target.value;renderDir();};
 $('#btnNewMat').onclick=()=>{ const v=$('#newMatName').value.trim(); if(!v)return; DB.dirs.unshift(v); $('#newMatName').value=''; save(); renderDir(); };
 
 // ---------- аккаунты ----------
+function closeColorMenu(){ document.querySelectorAll('.color-menu').forEach(m=>m.remove()); }
+function openColorMenu(anchor,acc,after){
+  closeColorMenu();
+  const r=anchor.getBoundingClientRect();
+  const m=document.createElement('div'); m.className='color-menu';
+  PALETTE.forEach(c=>{
+    const b=document.createElement('button'); b.type='button';
+    b.style.background=c; if(c===acc.color) b.classList.add('sel');
+    b.onmousedown=e=>{ e.preventDefault(); e.stopPropagation(); acc.color=c; save(); if(after) after(); closeColorMenu(); };
+    m.appendChild(b);
+  });
+  document.body.appendChild(m);
+  const W=m.offsetWidth||166, H=m.offsetHeight||166;
+  m.style.left=Math.max(8,Math.min(r.left,innerWidth-W-8))+'px';
+  let y=r.bottom+6; if(y+H>innerHeight-8) y=Math.max(8,r.top-H-6);
+  m.style.top=y+'px';
+}
+document.addEventListener('click',e=>{ if(!e.target.closest('.color-menu')&&!e.target.closest('.acc-dot')) closeColorMenu(); });
 function renderAcc(){
   const box=$('#accList'); box.innerHTML='';
   const me=curAcc();
@@ -500,11 +558,7 @@ function renderAcc(){
     if(a.id===me.id) d.setAttribute('style',`border-left-color:${a.color}`);
     d.innerHTML=`<div style="display:flex;align-items:center;gap:10px"><span class="acc-dot" style="background:${a.color}" title="Сменить цвет"></span><div><b>${esc(a.name)}</b>${a.desc?`<span class="acc-desc">${esc(a.desc)}</span>`:''}</div></div>
       <div class="mat-right">${a.id===me.id?'<span class="me-badge">Я</span>':''}<button class="btn acc-edit" title="Редактировать">✏️</button><span class="mat-x"><button class="acc-del" title="Удалить">×</button></span></div>`;
-    d.querySelector('.acc-dot').onclick=e=>{
-      e.stopPropagation();
-      const i=PALETTE.indexOf(a.color);
-      a.color=PALETTE[(i+1)%PALETTE.length]; save(); renderAcc(); renderList();
-    };
+    d.querySelector('.acc-dot').onclick=e=>{ e.stopPropagation(); openColorMenu(e.currentTarget,a,()=>{ renderAcc(); renderList(); }); };
     d.querySelector('.acc-edit').onclick=e=>{ e.stopPropagation(); openAccEdit(a.id); };
     d.querySelector('.acc-del').onclick=e=>{
       e.stopPropagation();
@@ -557,12 +611,11 @@ saveLocal(); renderList(); renderDir();
 applyTheme(localStorage.getItem('raskroi_theme') || (TG?.colorScheme==='dark'?'dark':'light'));
 pullState(); setInterval(()=>{ if(!document.hidden) pullState(); }, CLOUD?5000:3000);
 // мгновенная синхронизация через Realtime (если включена репликация таблицы)
-let realtimeOn=false;
 try{
   if(CLOUD && window.supabase){
     const sb=window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_KEY);
     sb.channel('state').on('postgres_changes',{event:'*',schema:'public',table:'app_state'},()=>{ pullState(); })
-      .subscribe((st)=>{ realtimeOn=(st==='SUBSCRIBED'); });
+      .subscribe();
   }
 }catch{}
 if('serviceWorker' in navigator){

@@ -1,6 +1,6 @@
-/* Service Worker мобильной версии: офлайн-оболочка, данные всегда с сервера. */
-const CACHE = 'raskroi-m3';
-const ASSETS = ['./', './index.html', './styles.css', './app.js', './config.js?v=5', './manifest.json'];
+/* Service Worker мобильной версии: всегда свежие файлы с сети (как Ctrl+F5), кэш — только для офлайна. */
+const CACHE = 'raskroi-m4';
+const ASSETS = ['./', './index.html', './styles.css', './app.js', './config.js?v=6', './manifest.json'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
 });
@@ -25,14 +25,12 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET' || u.origin !== location.origin) return;
   if (u.pathname.startsWith('/api/')) return;
   e.respondWith(
-    caches.match(e.request).then(
-      (r) =>
-        r ||
-        fetch(e.request).then((res) => {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(e.request, copy));
-          return res;
-        }).catch(() => caches.match('./index.html'))
-    )
+    fetch(e.request)
+      .then((res) => {
+        const copy = res.clone();
+        caches.open(CACHE).then((c) => c.put(e.request, copy));
+        return res;
+      })
+      .catch(() => caches.match(e.request).then((r) => r || caches.match('./index.html')))
   );
 });
